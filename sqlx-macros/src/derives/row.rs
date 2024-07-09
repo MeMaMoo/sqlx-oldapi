@@ -84,14 +84,17 @@ fn expand_derive_from_row_struct(
                         .push(parse_quote!(#ty: ::sqlx_oldapi::decode::Decode<#lifetime, R::Database>));
                     predicates.push(parse_quote!(#ty: ::sqlx_oldapi::types::Type<R::Database>));
 
-                    let id_s = attributes
-                        .rename
-                        .or_else(|| Some(id.to_string().trim_start_matches("r#").to_owned()))
-                        .map(|s| match container_attributes.rename_all {
-                            Some(pattern) => rename_all(&s, pattern),
-                            None => s,
-                        })
-                        .unwrap();
+                    // Change from https://github.com/launchbadge/sqlx/issues/2896. They only
+                    // mention this one....
+                    let id_s = if let Some(s) = attributes.rename {
+                        s
+                    } else {
+                        let s = id.to_string().trim_start_matches("r#").to_owned();
+                        match container_attributes.rename_all {
+                             Some(pattern) => rename_all(&s, pattern),
+                             None => s,
+                        }
+                    };
                     parse_quote!(row.try_get(#id_s))
                 }
                 (true,Some(try_from)) => {
@@ -104,14 +107,25 @@ fn expand_derive_from_row_struct(
                     let predicate2 = parse_quote!(#try_from: ::sqlx_oldapi::types::Type<R::Database>);
                     predicates.push(predicate2);
 
-                    let id_s = attributes
-                        .rename
-                        .or_else(|| Some(id.to_string().trim_start_matches("r#").to_owned()))
-                        .map(|s| match container_attributes.rename_all {
-                            Some(pattern) => rename_all(&s, pattern),
-                            None => s,
-                        })
-                        .unwrap();
+                    // .. But this seems the same, so changed here too.. left original commented
+                    // below for when I have a chance to check it out.
+                    let id_s = if let Some(s) = attributes.rename {
+                        s
+                    } else {
+                        let s = id.to_string().trim_start_matches("r#").to_owned();
+                        match container_attributes.rename_all {
+                             Some(pattern) => rename_all(&s, pattern),
+                             None => s,
+                        }
+                    };
+                    // let id_s = attributes
+                    //     .rename
+                    //     .or_else(|| Some(id.to_string().trim_start_matches("r#").to_owned()))
+                    //     .map(|s| match container_attributes.rename_all {
+                    //         Some(pattern) => rename_all(&s, pattern),
+                    //         None => s,
+                    //     })
+                    //     .unwrap();
                     parse_quote!(row.try_get(#id_s).and_then(|v| <#ty as ::std::convert::TryFrom::<#try_from>>::try_from(v).map_err(|e| ::sqlx_oldapi::Error::ColumnNotFound("FromRow: try_from failed".to_string()))))
                 }
             };
