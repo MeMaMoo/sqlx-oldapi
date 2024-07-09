@@ -9,6 +9,50 @@ use crate::error::{self, BoxDynError};
 use crate::mssql::protocol::type_info::{DataType, TypeInfo};
 use crate::mssql::{Mssql, MssqlTypeInfo, MssqlValueRef};
 use crate::types::Type;
+use crate::types::Uuid;
+
+fn reorder_bytes(bytes: &mut uuid::Bytes) {
+    bytes.swap(0, 3);
+    bytes.swap(1, 2);
+    bytes.swap(4, 5);
+    bytes.swap(6, 7);
+}
+
+impl Decode<'_, Mssql> for Uuid {
+    fn decode(value: MssqlValueRef<'_>) -> Result<Self, BoxDynError> {
+        let size = value.type_info.0.size;
+        assert!(size == 16); // Not sure if this size is ALWAYS the case
+                             // See an example of this happening before worrying about it...
+                             // This is based on the tiberius decode.
+        let bytes = value.as_bytes()?;
+
+        let mut data = [0u8; 16];
+
+        let mut c = 0;
+        for item in &mut data {
+            *item = bytes[c];
+            c += 1;
+        }
+        reorder_bytes(&mut data);
+        Ok(Uuid::from_bytes(data))
+    }
+}
+
+impl Type<Mssql> for Uuid {
+    fn type_info() -> MssqlTypeInfo {
+        MssqlTypeInfo(TypeInfo {
+            scale: 0,
+            ty: DataType::Guid,
+            size: 16,
+            collation: None,
+            precision: 0,
+        })
+    }
+
+    fn compatible(ty: &MssqlTypeInfo) -> bool {
+        matches!(ty.0.ty, DataType::Guid)
+    }
+}
 
 /// Provides conversion of chrono::DateTime (UTC) to MS SQL DateTime2N
 ///
