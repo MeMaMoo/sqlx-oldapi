@@ -190,7 +190,10 @@ impl TypeInfo {
             }
 
             DataType::Guid
-            | DataType::IntN
+            // TODO: Need to test this.. Appears to work.. but dont have any actual real data to test it with yet..  
+            // Doesn't REALLY work.. But lets it start/run.. Just can't use XML Data atm.. but i
+            // dont need to.. yet
+            | DataType::Xml           | DataType::IntN
             | DataType::BitN
             | DataType::FloatN
             | DataType::MoneyN
